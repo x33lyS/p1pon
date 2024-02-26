@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@types/pathfinding": "^0.0.9"
+  }
+}

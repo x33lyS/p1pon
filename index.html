@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulateur de feu de forêt</title>
+  <style>
+    canvas {
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+ 
+<canvas id="forestCanvas"></canvas>
+ 
+<script>
+const COLORS = ["ivory", "limegreen", "red", "lightgrey"];
+ 
+function getRandomSubset(array, size) {
+    const shuffled = array.slice(0);
+    let i = array.length;
+    let temp;
+    let index;
+ 
+    while (i--) {
+        index = Math.floor((i + 1) * Math.random());
+        temp = shuffled[index];
+        shuffled[index] = shuffled[i];
+        shuffled[i] = temp;
+    }
+ 
+    return shuffled.slice(0, size);
+}
+ 
+function randomForest(p, n, obstacleDensity) {
+    const units = [...Array(n)].map((_, col) =>
+        [...Array(n)].map((_, line) => [line, col])
+    ).flat();
+   
+    const ntrees = Math.floor(n * n * p);
+    const trees = getRandomSubset(units, ntrees);
+   
+    const nObstacles = Math.floor(n * n * obstacleDensity);
+    const obstacles = getRandomSubset(units, nObstacles);
+ 
+    const states = Array.from({ length: n }, () => Array(n).fill(0));
+   
+    trees.forEach(([i, j]) => states[i][j] = 1);
+    obstacles.forEach(([i, j]) => states[i][j] = -1); // -1 represents an obstacle
+ 
+    return states;
+}
+ 
+function neighbors(n, i, j) {
+    return [
+        [i, j + 1], [i, j - 1],
+        [i - 1, j], [i + 1, j]
+    ].filter(([a, b]) => a >= 0 && a < n && b >= 0 && b < n);
+}
+ 
+function updateStates(states) {
+    const n = states.length;
+    const toFire = [];
+ 
+    for (let line = 0; line < n; line++) {
+        for (let col = 0; col < n; col++) {
+            if (states[line][col] === 2) {
+                states[line][col] = 3;
+ 
+                neighbors(n, line, col).forEach(([i, j]) => {
+                    if (states[i][j] === 1) {
+                        toFire.push([i, j]);
+                    }
+                });
+            }
+        }
+    }
+ 
+    toFire.forEach(([line, col]) => states[line][col] = 2);
+}
+ 
+function fillCell(ctx, states, line, col, unit) {
+    const A = [unit * col, unit * line];
+    const B = [unit * (col + 1), unit * (line + 1)];
+    const state = states[line][col];
+ 
+    if (state === -1) {
+        ctx.fillStyle = "blue"; // Set black color for obstacles
+    } else {
+        ctx.fillStyle = COLORS[state];
+    }
+ 
+    ctx.fillRect(A[0], A[1], B[0] - A[0], B[1] - A[1]);
+}
+ 
+function fill(ctx, states, unit) {
+    const n = states.length;
+    for (let line = 0; line < n; line++) {
+        for (let col = 0; col < n; col++) {
+            fillCell(ctx, states, line, col, unit);
+        }
+    }
+}
+ 
+function propagate(ctx, canvas, states, unit) {
+    updateStates(states);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    fill(ctx, states, unit);
+   
+    if (fireStarted) {
+        setTimeout(() => propagate(ctx, canvas, states, unit), delay);
+    }
+}
+ 
+// Gestionnaire d'événements de clic sur le canvas
+const canvas = document.getElementById('forestCanvas');
+let fireStarted = false; // Variable de contrôle
+ 
+canvas.addEventListener("click", function(event) {
+        fireStarted = true;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+ 
+        // Convertir les coordonnées du clic en indices de matrice
+        const clickedCol = Math.floor(mouseX / unit);
+        const clickedLine = Math.floor(mouseY / unit);
+ 
+        // Mettre le feu à l'endroit du clic
+        if (clickedCol >= 0 && clickedCol < n && clickedLine >= 0 && clickedLine < n) {
+            states[clickedLine][clickedCol] = 2;
+        }
+ 
+        delay = Math.floor(Math.random() * (250 - 50 + 1)) + 50;
+        propagate(context, canvas, states, unit);
+});
+ 
+// Paramètres
+const p = 0.72; // densité d'arbres
+const obstacleDensity = 0.1; // densité d'obstacles
+const n = 500;
+const unit = 10;
+ 
+// Définir dynamiquement la largeur du canvas en fonction de la largeur de la fenêtre
+canvas.width = window.innerWidth -300;
+canvas.height = window.innerHeight -23;
+ 
+// Créer le canvas
+const context = canvas.getContext('2d');
+ 
+// Forêt aléatoire avec obstacles
+const states = randomForest(p, n, obstacleDensity);
+ 
+// Remplir le canvas initial
+fill(context, states, unit);
+ 
+</script>
+ 
+</body>
+</html>
